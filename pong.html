@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pong</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: monospace; }
+  canvas { border: 2px solid #fff; }
+  #info { color: #aaa; margin-top: 10px; font-size: 13px; }
+</style>
+</head>
+<body>
+<canvas id="c" width="800" height="500"></canvas>
+<div id="info">W/S — left paddle &nbsp;|&nbsp; UP/DOWN — right paddle &nbsp;|&nbsp; SPACE — pause</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const W = canvas.width, H = canvas.height;
+const PADDLE_W = 12, PADDLE_H = 80, BALL_SIZE = 10;
+const PADDLE_SPEED = 5, INITIAL_BALL_SPEED = 4;
+
+const state = {
+  left:  { y: H/2 - PADDLE_H/2, score: 0, up: false, down: false },
+  right: { y: H/2 - PADDLE_H/2, score: 0, up: false, down: false },
+  ball: { x: W/2, y: H/2, vx: INITIAL_BALL_SPEED, vy: 3 },
+  paused: false,
+  started: false,
+};
+
+function resetBall(dir = 1) {
+  state.ball.x = W / 2;
+  state.ball.y = H / 2;
+  const angle = (Math.random() * 60 - 30) * Math.PI / 180;
+  state.ball.vx = dir * INITIAL_BALL_SPEED * Math.cos(angle);
+  state.ball.vy = INITIAL_BALL_SPEED * Math.sin(angle);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'KeyW') state.left.up = true;
+  if (e.code === 'KeyS') state.left.down = true;
+  if (e.code === 'ArrowUp') { state.right.up = true; e.preventDefault(); }
+  if (e.code === 'ArrowDown') { state.right.down = true; e.preventDefault(); }
+  if (e.code === 'Space') { state.paused = !state.paused; state.started = true; e.preventDefault(); }
+});
+document.addEventListener('keyup', e => {
+  if (e.code === 'KeyW') state.left.up = false;
+  if (e.code === 'KeyS') state.left.down = false;
+  if (e.code === 'ArrowUp') state.right.up = false;
+  if (e.code === 'ArrowDown') state.right.down = false;
+});
+
+function clampPaddle(p) {
+  p.y = Math.max(0, Math.min(H - PADDLE_H, p.y));
+}
+
+function update() {
+  if (state.paused || !state.started) return;
+
+  // Move paddles
+  if (state.left.up)   state.left.y  -= PADDLE_SPEED;
+  if (state.left.down) state.left.y  += PADDLE_SPEED;
+  if (state.right.up)  state.right.y -= PADDLE_SPEED;
+  if (state.right.down)state.right.y += PADDLE_SPEED;
+  clampPaddle(state.left);
+  clampPaddle(state.right);
+
+  // Move ball
+  const b = state.ball;
+  b.x += b.vx;
+  b.y += b.vy;
+
+  // Top / bottom bounce
+  if (b.y - BALL_SIZE/2 <= 0) { b.y = BALL_SIZE/2; b.vy *= -1; }
+  if (b.y + BALL_SIZE/2 >= H) { b.y = H - BALL_SIZE/2; b.vy *= -1; }
+
+  // Left paddle collision
+  const lx = 20 + PADDLE_W;
+  if (b.vx < 0 && b.x - BALL_SIZE/2 <= lx &&
+      b.y >= state.left.y && b.y <= state.left.y + PADDLE_H) {
+    b.x = lx + BALL_SIZE/2;
+    const hit = (b.y - (state.left.y + PADDLE_H/2)) / (PADDLE_H/2);
+    const speed = Math.min(Math.hypot(b.vx, b.vy) * 1.05, 14);
+    const angle = hit * 60 * Math.PI / 180;
+    b.vx =  speed * Math.cos(angle);
+    b.vy =  speed * Math.sin(angle);
+  }
+
+  // Right paddle collision
+  const rx = W - 20 - PADDLE_W;
+  if (b.vx > 0 && b.x + BALL_SIZE/2 >= rx &&
+      b.y >= state.right.y && b.y <= state.right.y + PADDLE_H) {
+    b.x = rx - BALL_SIZE/2;
+    const hit = (b.y - (state.right.y + PADDLE_H/2)) / (PADDLE_H/2);
+    const speed = Math.min(Math.hypot(b.vx, b.vy) * 1.05, 14);
+    const angle = hit * 60 * Math.PI / 180;
+    b.vx = -speed * Math.cos(angle);
+    b.vy =  speed * Math.sin(angle);
+  }
+
+  // Score
+  if (b.x < 0) { state.right.score++; resetBall(1); }
+  if (b.x > W) { state.left.score++;  resetBall(-1); }
+}
+
+function draw() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+
+  // Center dashes
+  ctx.setLineDash([10, 10]);
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(W/2, 0); ctx.lineTo(W/2, H); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Scores
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 48px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(state.left.score,  W/2 - 80, 60);
+  ctx.fillText(state.right.score, W/2 + 80, 60);
+
+  // Paddles
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(20, state.left.y,  PADDLE_W, PADDLE_H);
+  ctx.fillRect(W - 20 - PADDLE_W, state.right.y, PADDLE_W, PADDLE_H);
+
+  // Ball
+  ctx.fillRect(state.ball.x - BALL_SIZE/2, state.ball.y - BALL_SIZE/2, BALL_SIZE, BALL_SIZE);
+
+  // Overlay
+  if (!state.started) {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 32px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('PONG', W/2, H/2 - 20);
+    ctx.font = '18px monospace';
+    ctx.fillText('Press SPACE to start', W/2, H/2 + 20);
+  } else if (state.paused) {
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 28px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('PAUSED', W/2, H/2);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
