@@ -49,6 +49,31 @@ describe('Driver Auth API', () => {
     });
   });
 
+  describe('GET /api/driver/login', () => {
+    it('creates a new driver when name does not exist', async () => {
+      const res = await request(app).get('/api/driver/login?name=NewDriver');
+      expect(res.status).toBe(201);
+      expect(res.body.driver.name).toBe('NewDriver');
+      expect(res.body.driver.token).toBeDefined();
+      expect(res.body.route).toBeNull();
+      expect(res.body.stops).toHaveLength(0);
+    });
+
+    it('returns existing driver with route and stops when name exists', async () => {
+      const res = await request(app).get('/api/driver/login?name=Marco');
+      expect(res.status).toBe(200);
+      expect(res.body.driver.name).toBe('Marco');
+      expect(res.body.driver.id).toBe(1);
+      expect(res.body.route).toBeDefined();
+      expect(res.body.stops).toHaveLength(2);
+    });
+
+    it('returns 400 when name query param is missing', async () => {
+      const res = await request(app).get('/api/driver/login');
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe('PATCH /api/orders/:id/deliver', () => {
     it('marks order as delivered', async () => {
       const res = await request(app).patch('/api/orders/1/deliver');

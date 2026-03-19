@@ -52,4 +52,32 @@ describe('Drivers API', () => {
       expect(res.body).toHaveLength(2);
     });
   });
+
+  describe('DELETE /api/drivers/:id', () => {
+    beforeEach(() => {
+      db.prepare("INSERT INTO drivers (id, name, token, status) VALUES (10, 'Rossi', 'tok-rossi', 'idle')").run();
+      db.prepare("INSERT INTO drivers (id, name, token, status) VALUES (11, 'Bianchi', 'tok-bianchi', 'delivering')").run();
+      db.prepare("INSERT INTO routes (id, driver_id, stops, status) VALUES (100, 11, '[1]', 'active')").run();
+    });
+
+    it('deletes a driver with no active routes and returns 200', async () => {
+      const res = await request(app).delete('/api/drivers/10');
+      expect(res.status).toBe(200);
+      const gone = db.prepare('SELECT * FROM drivers WHERE id = 10').get();
+      expect(gone).toBeUndefined();
+    });
+
+    it('returns 404 when driver does not exist', async () => {
+      const res = await request(app).delete('/api/drivers/9999');
+      expect(res.status).toBe(404);
+    });
+
+    it('returns 400 when driver has an active route', async () => {
+      const res = await request(app).delete('/api/drivers/11');
+      expect(res.status).toBe(400);
+      // Driver should still exist
+      const still = db.prepare('SELECT * FROM drivers WHERE id = 11').get();
+      expect(still).toBeDefined();
+    });
+  });
 });

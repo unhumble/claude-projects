@@ -1,7 +1,44 @@
 import { Router } from 'express';
+import { randomUUID } from 'crypto';
 
 export function createDriverAuthRouter(db, sse) {
   const router = Router();
+
+  // GET /api/driver/login?name=Alice — name-based login with auto-create
+  router.get('/driver/login', (req, res) => {
+    const { name } = req.query;
+
+    if (!name) {
+      return res.status(400).json({ error: 'name query parameter is required' });
+    }
+
+    let driver = db.prepare('SELECT * FROM drivers WHERE name = ?').get(name);
+
+    if (!driver) {
+      const token = randomUUID();
+      const result = db.prepare('INSERT INTO drivers (name, token) VALUES (?, ?)').run(name, token);
+      driver = db.prepare('SELECT * FROM drivers WHERE id = ?').get(result.lastInsertRowid);
+      return res.status(201).json({ driver, route: null, stops: [] });
+    }
+
+    const route = db.prepare(
+      "SELECT * FROM routes WHERE driver_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
+    ).get(driver.id);
+
+    let stops = [];
+    if (route) {
+      const orderIds = JSON.parse(route.stops);
+      const placeholders = orderIds.map(() => '?').join(',');
+      const orders = db.prepare(
+        `SELECT * FROM orders WHERE id IN (${placeholders})`
+      ).all(...orderIds);
+
+      const orderMap = new Map(orders.map(o => [o.id, o]));
+      stops = orderIds.map(id => orderMap.get(id)).filter(Boolean);
+    }
+
+    res.json({ driver, route: route || null, stops });
+  });
 
   // GET /api/driver/:token — driver view
   router.get('/driver/:token', (req, res) => {

@@ -45,5 +45,25 @@ export function createDriversRouter(db) {
     res.json(enriched);
   });
 
+  // DELETE /api/drivers/:id
+  router.delete('/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+
+    const driver = db.prepare('SELECT * FROM drivers WHERE id = ?').get(id);
+    if (!driver) {
+      return res.status(404).json({ error: 'Driver not found' });
+    }
+
+    const activeRoute = db.prepare(
+      "SELECT id FROM routes WHERE driver_id = ? AND status = 'active' LIMIT 1"
+    ).get(id);
+    if (activeRoute) {
+      return res.status(400).json({ error: 'Driver has active routes and cannot be deleted' });
+    }
+
+    db.prepare('DELETE FROM drivers WHERE id = ?').run(id);
+    res.status(200).json({ message: 'Driver deleted' });
+  });
+
   return router;
 }
