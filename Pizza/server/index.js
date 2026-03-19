@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { readFileSync } from 'fs';
 import Database from 'better-sqlite3';
 import { createTables } from './db.js';
 import { createSSEManager } from './sse.js';
@@ -10,6 +13,7 @@ import { createOptimizeRouter } from './routes/optimize.js';
 import { createRoutesRouter } from './routes/routes.js';
 import { createDriverAuthRouter } from './routes/driver-auth.js';
 import { createPushRouter } from './routes/push.js';
+import { createPlanRouter } from './routes/plan.js';
 
 export function createApp(dbPath) {
   const db = new Database(dbPath || process.env.DB_PATH || 'pizza.db');
@@ -38,12 +42,20 @@ export function createApp(dbPath) {
   app.use('/api/routes', createRoutesRouter(db, sse));
   app.use('/api', createDriverAuthRouter(db, sse));
   app.use('/api', createPushRouter(db));
+  app.use('/api/plan', createPlanRouter(db));
+
+  // Serve demo page
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  app.get('/demo', (req, res) => {
+    res.status(200).sendFile(join(__dirname, 'demo.html'));
+  });
 
   return { app, db, sse };
 }
 
 // Start server when run directly
-if (process.argv[1] && import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
+const __filename = fileURLToPath(import.meta.url);
+if (!process.env.VITEST) {
   const PORT = process.env.PORT || 3001;
   const { app } = createApp();
   app.listen(PORT, () => {

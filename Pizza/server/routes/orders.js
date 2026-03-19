@@ -5,7 +5,7 @@ export function createOrdersRouter(db, sse) {
   const router = Router();
 
   router.post('/', async (req, res) => {
-    const { customer_name, address, phone, notes } = req.body;
+    const { customer_name, address, phone, notes, deliver_at } = req.body;
 
     if (!customer_name || !address) {
       return res.status(400).json({ error: 'customer_name and address are required' });
@@ -21,10 +21,10 @@ export function createOrdersRouter(db, sse) {
     }
 
     const stmt = db.prepare(
-      `INSERT INTO orders (customer_name, address, phone, notes, lat, lng)
-       VALUES (?, ?, ?, ?, ?, ?)`
+      `INSERT INTO orders (customer_name, address, phone, notes, lat, lng, deliver_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     );
-    const result = stmt.run(customer_name, address, phone || null, notes || null, lat, lng);
+    const result = stmt.run(customer_name, address, phone || null, notes || null, lat, lng, deliver_at || null);
 
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(result.lastInsertRowid);
 

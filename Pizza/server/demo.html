@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pizza Delivery — Singen Demo</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e4e9; height: 100vh; display: flex; }
+
+  #sidebar {
+    width: 420px; min-width: 420px; padding: 18px; display: flex; flex-direction: column; gap: 10px;
+    background: #181a20; border-right: 1px solid #2a2d36; overflow-y: auto;
+  }
+
+  h1 { font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+  h1 span { font-size: 22px; }
+
+  .step-section {
+    background: #1e2028; border: 1px solid #2a2d36; border-radius: 10px; padding: 12px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .step-section.active { border-color: #f59e0b; box-shadow: 0 0 0 1px #f59e0b33; }
+  .step-section.done { border-color: #22c55e55; }
+  .step-section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .step-section h2 .num { background: #2a2d36; color: #f59e0b; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; }
+  .step-section.done h2 .num { background: #22c55e33; color: #22c55e; }
+
+  button {
+    padding: 7px 12px; border: none; border-radius: 7px; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-primary { background: #f59e0b; color: #000; }
+  .btn-primary:hover:not(:disabled) { background: #fbbf24; }
+  .btn-success { background: #22c55e; color: #fff; }
+  .btn-success:hover:not(:disabled) { background: #16a34a; }
+  .btn-blue { background: #3b82f6; color: #fff; }
+  .btn-blue:hover:not(:disabled) { background: #2563eb; }
+  .btn-danger { background: #ef4444; color: #fff; font-size: 11px; padding: 3px 8px; }
+  .btn-full { width: 100%; }
+
+  input, select {
+    width: 100%; padding: 7px 9px; border: 1px solid #2a2d36; border-radius: 5px; font-size: 12px;
+    background: #111318; color: #e2e4e9; font-family: inherit;
+  }
+  input:focus, select:focus { outline: none; border-color: #f59e0b; }
+  select { cursor: pointer; }
+
+  .form-row { display: flex; gap: 6px; margin-bottom: 6px; }
+  .form-row > * { flex: 1; }
+  label { font-size: 10px; color: #6b7280; margin-bottom: 2px; display: block; }
+
+  /* Autocomplete dropdown */
+  .autocomplete-wrap { position: relative; }
+  .autocomplete-list {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+    background: #1e2028; border: 1px solid #2a2d36; border-radius: 6px; max-height: 180px; overflow-y: auto;
+    display: none;
+  }
+  .autocomplete-list.show { display: block; }
+  .autocomplete-item {
+    padding: 7px 10px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #2a2d3622;
+  }
+  .autocomplete-item:hover { background: #262830; }
+  .autocomplete-item .main { color: #fff; font-weight: 500; }
+  .autocomplete-item .sub { color: #6b7280; font-size: 11px; }
+
+  .order-card {
+    background: #262830; border-radius: 7px; padding: 7px 9px; margin-top: 5px;
+    display: flex; align-items: center; gap: 7px; font-size: 11px;
+  }
+  .order-card .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .order-card .dot.pending { background: #ef4444; }
+  .order-card .dot.assigned { background: #22c55e; }
+  .order-card .dot.delivered { background: #6b7280; }
+  .order-card .name { font-weight: 600; color: #fff; }
+  .order-card .addr { color: #9ca3af; font-size: 10px; }
+  .order-card .time-badge { color: #f59e0b; font-size: 10px; }
+  .order-card .status-badge {
+    margin-left: auto; font-size: 9px; padding: 2px 5px; border-radius: 3px; font-weight: 600; text-transform: uppercase; flex-shrink: 0;
+  }
+  .status-badge.pending { background: #ef444433; color: #ef4444; }
+  .status-badge.assigned { background: #22c55e33; color: #22c55e; }
+  .status-badge.delivered { background: #6b728033; color: #9ca3af; }
+
+  .driver-card {
+    background: #262830; border-radius: 7px; padding: 7px 9px; margin-top: 5px;
+    display: flex; align-items: center; gap: 7px; font-size: 11px;
+  }
+  .driver-card .avatar { width: 26px; height: 26px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+  .driver-status { margin-left: auto; font-size: 9px; padding: 2px 5px; border-radius: 3px; font-weight: 600; text-transform: uppercase; flex-shrink: 0; }
+  .driver-status.idle { background: #6b728033; color: #9ca3af; }
+  .driver-status.delivering { background: #f59e0b33; color: #f59e0b; }
+
+  /* Plan preview cards */
+  .plan-card {
+    background: #262830; border-radius: 7px; padding: 9px; margin-top: 6px; border-left: 3px solid;
+  }
+  .plan-card h3 { font-size: 12px; color: #fff; margin-bottom: 4px; }
+  .plan-card .stops { font-size: 11px; color: #9ca3af; }
+  .plan-card .assign-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+  .plan-card .assign-row select { flex: 1; font-size: 11px; padding: 4px 6px; }
+
+  #log {
+    flex: 1; min-height: 50px; background: #111318; border: 1px solid #2a2d36; border-radius: 7px;
+    padding: 7px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 10px; overflow-y: auto; color: #6b7280;
+  }
+  #log .entry { margin-bottom: 2px; }
+  #log .entry .time { color: #4b5563; }
+  #log .entry.success { color: #22c55e; }
+  #log .entry.info { color: #3b82f6; }
+  #log .entry.warn { color: #f59e0b; }
+
+  #map-container { flex: 1; position: relative; }
+  #map { width: 100%; height: 100%; }
+
+  .stats-bar {
+    position: absolute; top: 12px; right: 12px; z-index: 1000;
+    display: flex; gap: 6px;
+  }
+  .stat {
+    background: #181a20ee; backdrop-filter: blur(8px); border: 1px solid #2a2d36;
+    border-radius: 7px; padding: 5px 10px; font-size: 10px; color: #9ca3af;
+  }
+  .stat .val { font-size: 15px; font-weight: 700; color: #fff; display: block; }
+
+  .leaflet-popup-content-wrapper { background: #1e2028; color: #e2e4e9; border-radius: 10px; border: 1px solid #2a2d36; }
+  .leaflet-popup-tip { background: #1e2028; }
+  .leaflet-popup-content { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 12px; margin: 8px 12px; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h1><span>&#127829;</span> Pizza Delivery — Singen</h1>
+
+  <!-- STEP 1: DRIVERS -->
+  <div class="step-section active" id="sec-drivers">
+    <h2><span class="num">1</span> Drivers</h2>
+    <div class="form-row">
+      <div>
+        <label>Driver name</label>
+        <input type="text" id="driver-name" placeholder="e.g. Marco" />
+      </div>
+      <div style="flex:0 0 auto; display:flex; align-items:end;">
+        <button class="btn-primary" onclick="addDriver()">Add</button>
+      </div>
+    </div>
+    <div id="drivers-display"></div>
+  </div>
+
+  <!-- STEP 2: ORDERS -->
+  <div class="step-section" id="sec-orders">
+    <h2><span class="num">2</span> Create Orders</h2>
+    <div class="form-row">
+      <div>
+        <label>Customer name</label>
+        <input type="text" id="order-name" placeholder="e.g. Schmidt" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="autocomplete-wrap">
+        <label>Street &amp; number</label>
+        <input type="text" id="order-street" placeholder="Start typing an address..." autocomplete="off" />
+        <div class="autocomplete-list" id="autocomplete-list"></div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div style="flex: 0 0 42%;">
+        <label>Area</label>
+        <select id="order-area">
+          <option value="78224 Singen">78224 Singen</option>
+          <option value="78224 Selbstabholer Singen">78224 Selbstabholer</option>
+          <option value="78239 Arlen">78239 Arlen</option>
+          <option value="78224 Beuren an der Aach">78224 Beuren</option>
+          <option value="78224 Bohlingen">78224 Bohlingen</option>
+          <option value="78247 Duchtlingen">78247 Duchtlingen</option>
+          <option value="78259 Ehingen">78259 Ehingen</option>
+          <option value="78224 Friedingen">78224 Friedingen</option>
+          <option value="78244 Gottmadingen">78244 Gottmadingen</option>
+          <option value="78224 Hausen an der Aach">78224 Hausen</option>
+          <option value="78247 Hilzingen">78247 Hilzingen</option>
+          <option value="78244 Randegg">78244 Randegg</option>
+          <option value="78247 Riedheim">78247 Riedheim</option>
+          <option value="78239 Rielasingen">78239 Rielasingen</option>
+          <option value="78224 Schlatt unter Kraehen">78224 Schlatt</option>
+          <option value="78256 Steisslingen">78256 Steisslingen</option>
+          <option value="78247 Twielfeld">78247 Twielfeld</option>
+          <option value="78224 Ueberlingen am Ried">78224 Ueberlingen a.R.</option>
+          <option value="78247 Weiterdingen">78247 Weiterdingen</option>
+          <option value="78239 Worblingen">78239 Worblingen</option>
+        </select>
+      </div>
+      <div style="flex: 0 0 28%;">
+        <label>Deliver at</label>
+        <input type="time" id="order-deliver-at" />
+      </div>
+      <div>
+        <label>Phone</label>
+        <input type="text" id="order-phone" placeholder="optional" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label>Notes</label>
+        <input type="text" id="order-notes" placeholder="optional" />
+      </div>
+    </div>
+    <button class="btn-primary btn-full" id="btn-add-order" onclick="addOrder()" disabled>Add Order</button>
+    <div id="orders-display"></div>
+  </div>
+
+  <!-- STEP 3: PLAN ROUTES -->
+  <div class="step-section" id="sec-plan">
+    <h2><span class="num">3</span> Plan Routes</h2>
+    <p style="font-size:11px;color:#6b7280;margin-bottom:6px;">Clusters orders by geography &amp; time, previews routes for each driver.</p>
+    <button class="btn-blue btn-full" id="btn-plan" onclick="planRoutes()" disabled>Plan Routes for Idle Drivers</button>
+    <div id="plan-display"></div>
+  </div>
+
+  <!-- STEP 4: ASSIGN -->
+  <div class="step-section" id="sec-assign">
+    <h2><span class="num">4</span> Assign Routes</h2>
+    <button class="btn-primary btn-full" id="btn-assign" onclick="assignAllRoutes()" disabled>Assign All Planned Routes</button>
+    <div id="assign-display" style="margin-top:6px;font-size:11px;color:#9ca3af;"></div>
+  </div>
+
+  <!-- STEP 5: DELIVER -->
+  <div class="step-section" id="sec-deliver">
+    <h2><span class="num">5</span> Deliver Orders</h2>
+    <div id="deliver-controls"></div>
+    <div id="deliver-display" style="margin-top:6px;font-size:11px;color:#9ca3af;"></div>
+  </div>
+
+  <div id="log"></div>
+</div>
+
+<div id="map-container">
+  <div class="stats-bar">
+    <div class="stat">Pending<span class="val" id="stat-pending">0</span></div>
+    <div class="stat">Assigned<span class="val" id="stat-assigned">0</span></div>
+    <div class="stat">Delivered<span class="val" id="stat-delivered">0</span></div>
+    <div class="stat">Drivers<span class="val" id="stat-drivers">0</span></div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<script>
+const API = 'http://localhost:3001/api';
+const ROUTE_COLORS = ['#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316','#06b6d4','#eab308','#ef4444'];
+const ORIGIN = { lat: 47.7596, lng: 8.8403, address: 'Schwarzwaldstrasse 42, 78224 Singen' };
+
+let drivers = [];
+let orders = [];
+let plannedRoutes = null; // array of { orderIds, optimizedOrderIds, geometry, driverId }
+let routeLines = [];
+let markers = {};
+let activeDeliveries = {}; // driverId -> { optimizedOrderIds, deliveryIndex }
+
+// Map centered on Singen
+const map = L.map('map', { zoomControl: false }).setView([47.76, 8.84], 12);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
+}).addTo(map);
+
+// Pizzeria marker
+const shopMarker = L.marker([ORIGIN.lat, ORIGIN.lng], {
+  icon: L.divIcon({
+    className: '',
+    html: `<div style="width:32px;height:32px;border-radius:50%;background:#f59e0b;border:3px solid #fff;box-shadow:0 2px 8px #0008;display:flex;align-items:center;justify-content:center;font-size:16px;">&#127829;</div>`,
+    iconSize: [32,32], iconAnchor: [16,16]
+  })
+}).addTo(map);
+shopMarker.bindPopup(`<b>Pizzeria</b><br>${ORIGIN.address}`);
+
+function makeIcon(color, label) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${label?26:20}px;height:${label?26:20}px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 8px #0008;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#fff;font-family:system-ui;">${label||''}</div>`,
+    iconSize: [label?26:20, label?26:20], iconAnchor: [label?13:10, label?13:10],
+  });
+}
+
+function log(msg, type='info') {
+  const el = document.getElementById('log');
+  const t = new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  el.innerHTML += `<div class="entry ${type}"><span class="time">${t}</span> ${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function activate(id) {
+  document.querySelectorAll('.step-section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function markDone(id) { document.getElementById(id).classList.add('done'); }
+
+function updateStats() {
+  document.getElementById('stat-pending').textContent = orders.filter(o=>o.status==='pending').length;
+  document.getElementById('stat-assigned').textContent = orders.filter(o=>o.status==='assigned').length;
+  document.getElementById('stat-delivered').textContent = orders.filter(o=>o.status==='delivered').length;
+  document.getElementById('stat-drivers').textContent = drivers.length;
+}
+
+function fmtTime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr.includes('T') ? isoStr : isoStr + 'Z');
+  return d.toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' });
+}
+
+function renderOrders() {
+  const el = document.getElementById('orders-display');
+  el.innerHTML = orders.map(o => {
+    const deliverStr = o.deliver_at ? `<span class="time-badge"> &#128339; ${o.deliver_at}</span>` : '';
+    const acceptedStr = o.created_at ? `<span style="color:#4b5563;font-size:9px;"> added ${fmtTime(o.created_at)}</span>` : '';
+    return `<div class="order-card">
+      <div class="dot ${o.status}"></div>
+      <div><div class="name">${o.customer_name}${acceptedStr}</div><div class="addr">${o.address.split(',')[0]}${deliverStr}</div></div>
+      <span class="status-badge ${o.status}">${o.status}</span>
+    </div>`;
+  }).join('');
+  updateStats();
+}
+
+function renderDrivers() {
+  const el = document.getElementById('drivers-display');
+  el.innerHTML = drivers.map((d, i) => `
+    <div class="driver-card">
+      <div class="avatar" style="background:${ROUTE_COLORS[i % ROUTE_COLORS.length]}">&#128104;&#8205;&#127859;</div>
+      <div><div style="font-weight:600;color:#fff">${d.name}</div><div style="color:#6b7280;font-size:9px">Token: ${d.token.slice(0,8)}...</div></div>
+      <span class="driver-status ${d.status || 'idle'}" id="driver-status-${d.id}">${d.status || 'idle'}</span>
+    </div>
+  `).join('');
+  updateStats();
+}
+
+function idleDrivers() { return drivers.filter(d => d.status === 'idle' || !d.status); }
+
+// ─── STEP 1: DRIVERS ───
+
+async function addDriver() {
+  const nameInput = document.getElementById('driver-name');
+  const name = nameInput.value.trim();
+  if (!name) { log('Enter a driver name', 'warn'); return; }
+  try {
+    const res = await fetch(`${API}/drivers`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name }) });
+    const driver = await res.json();
+    drivers.push(driver);
+    nameInput.value = '';
+    log(`Driver <b>${driver.name}</b> created`, 'success');
+    renderDrivers();
+    document.getElementById('btn-add-order').disabled = false;
+    if (drivers.length === 1) activate('sec-orders');
+  } catch(e) { log('Failed: ' + e.message, 'warn'); }
+}
+document.getElementById('driver-name').addEventListener('keydown', e => { if (e.key === 'Enter') addDriver(); });
+
+// ─── STEP 2: ORDERS + AUTOCOMPLETE ───
+
+let autocompleteTimeout = null;
+const streetInput = document.getElementById('order-street');
+const acList = document.getElementById('autocomplete-list');
+
+streetInput.addEventListener('input', () => {
+  clearTimeout(autocompleteTimeout);
+  const q = streetInput.value.trim();
+  if (q.length < 3) { acList.classList.remove('show'); return; }
+  autocompleteTimeout = setTimeout(() => fetchSuggestions(q), 350);
+});
+
+streetInput.addEventListener('blur', () => {
+  setTimeout(() => acList.classList.remove('show'), 200);
+});
+
+// All delivery area postcodes for cross-area search
+const DELIVERY_AREAS = [
+  '78224 Singen','78239 Arlen','78224 Beuren an der Aach','78224 Bohlingen',
+  '78247 Duchtlingen','78259 Ehingen','78224 Friedingen','78244 Gottmadingen',
+  '78224 Hausen an der Aach','78247 Hilzingen','78244 Randegg','78247 Riedheim',
+  '78239 Rielasingen','78224 Schlatt unter Kraehen','78256 Steisslingen',
+  '78247 Twielfeld','78224 Ueberlingen am Ried','78247 Weiterdingen','78239 Worblingen'
+];
+
+async function fetchSuggestions(query) {
+  try {
+    // Search by street name across the whole Singen delivery area, prioritize street results
+    const url = `https://nominatim.openstreetmap.org/search?` +
+      `street=${encodeURIComponent(query)}` +
+      `&format=json&addressdetails=1&limit=15&countrycodes=de` +
+      `&bounded=1&viewbox=8.6,47.85,9.1,47.65`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'de' } });
+    let results = await res.json();
+
+    // Filter to only results within our delivery postcodes
+    const validPostcodes = new Set(['78224','78239','78244','78247','78256','78259']);
+    results = results.filter(r => {
+      const pc = (r.address && r.address.postcode) || '';
+      return validPostcodes.has(pc);
+    });
+
+    // Deduplicate by road+town, keeping unique locations
+    const seen = new Set();
+    results = results.filter(r => {
+      const addr = r.address || {};
+      const road = addr.road || r.display_name.split(',')[0];
+      const town = addr.village || addr.town || addr.city || addr.suburb || '';
+      const houseNum = addr.house_number || '';
+      const key = `${road}|${houseNum}|${town}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    if (results.length === 0) { acList.classList.remove('show'); return; }
+
+    acList.innerHTML = results.map((r, i) => {
+      const addr = r.address || {};
+      const road = addr.road || '';
+      const houseNum = addr.house_number || '';
+      const main = road + (houseNum ? ' ' + houseNum : '');
+      const town = addr.village || addr.town || addr.city || addr.suburb || '';
+      const postcode = addr.postcode || '';
+      const sub = [town, postcode].filter(Boolean).join(', ');
+      // Store area value for auto-selecting the dropdown
+      const areaValue = `${postcode} ${town}`;
+      return `<div class="autocomplete-item" data-index="${i}" data-display="${main}" data-lat="${r.lat}" data-lng="${r.lon}" data-area="${areaValue}">
+        <div class="main">${main || r.display_name.split(',')[0]}</div>
+        <div class="sub">${town} (${postcode})</div>
+      </div>`;
+    }).join('');
+    acList.classList.add('show');
+
+    acList.querySelectorAll('.autocomplete-item').forEach(item => {
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        streetInput.value = item.dataset.display;
+        streetInput.dataset.lat = item.dataset.lat;
+        streetInput.dataset.lng = item.dataset.lng;
+        acList.classList.remove('show');
+        // Auto-select the matching area in the dropdown
+        const areaSelect = document.getElementById('order-area');
+        const areaVal = item.dataset.area;
+        for (const opt of areaSelect.options) {
+          if (opt.value.includes(areaVal) || opt.value.startsWith(areaVal.split(' ')[0])) {
+            // Find best match by town name
+            const town = areaVal.split(' ').slice(1).join(' ');
+            if (opt.value.toLowerCase().includes(town.toLowerCase())) {
+              areaSelect.value = opt.value;
+              break;
+            }
+          }
+        }
+      });
+    });
+  } catch(e) { /* ignore autocomplete errors */ }
+}
+
+async function addOrder() {
+  const name = document.getElementById('order-name').value.trim();
+  const street = document.getElementById('order-street').value.trim();
+  const area = document.getElementById('order-area').value;
+  const phone = document.getElementById('order-phone').value.trim();
+  const notes = document.getElementById('order-notes').value.trim();
+  const deliverAt = document.getElementById('order-deliver-at').value;
+
+  if (!name) { log('Enter a customer name', 'warn'); return; }
+  if (!street) { log('Enter a street address', 'warn'); return; }
+
+  const fullAddress = `${street}, ${area}, Germany`;
+  const btn = document.getElementById('btn-add-order');
+  btn.disabled = true;
+  btn.textContent = 'Geocoding...';
+
+  try {
+    const body = { customer_name: name, address: fullAddress };
+    if (phone) body.phone = phone;
+    if (notes) body.notes = notes;
+    if (deliverAt) body.deliver_at = deliverAt;
+
+    const res = await fetch(`${API}/orders`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed'); }
+    const order = await res.json();
+    orders.push(order);
+
+    const timeNote = deliverAt ? ` (deliver at ${deliverAt})` : '';
+    log(`Order #${order.id}: <b>${order.customer_name}</b> — ${street}${timeNote}`, 'success');
+
+    const marker = L.marker([order.lat, order.lng], { icon: makeIcon('#ef4444') }).addTo(map);
+    marker.bindPopup(`<b>${order.customer_name}</b><br>${street}<br>${area}<br><span style="color:#ef4444">Pending</span>`);
+    markers[order.id] = marker;
+    renderOrders();
+
+    const allPoints = orders.map(o => [o.lat, o.lng]);
+    allPoints.push([ORIGIN.lat, ORIGIN.lng]);
+    map.fitBounds(allPoints, { padding: [60, 60] });
+
+    // Clear inputs
+    document.getElementById('order-name').value = '';
+    document.getElementById('order-street').value = '';
+    delete streetInput.dataset.lat;
+    delete streetInput.dataset.lng;
+    document.getElementById('order-phone').value = '';
+    document.getElementById('order-notes').value = '';
+    document.getElementById('order-deliver-at').value = '';
+
+    if (orders.filter(o => o.status === 'pending').length >= 1 && idleDrivers().length >= 1) {
+      document.getElementById('btn-plan').disabled = false;
+    }
+
+    btn.textContent = 'Add Order';
+    btn.disabled = false;
+  } catch(e) { log('Failed: ' + e.message, 'warn'); btn.textContent = 'Add Order'; btn.disabled = false; }
+}
+document.getElementById('order-notes').addEventListener('keydown', e => { if (e.key === 'Enter') addOrder(); });
+
+// ─── STEP 3: PLAN ROUTES ───
+
+function clearRouteLines() {
+  routeLines.forEach(l => map.removeLayer(l));
+  routeLines = [];
+}
+
+async function planRoutes() {
+  const btn = document.getElementById('btn-plan');
+  btn.disabled = true;
+  btn.textContent = 'Planning...';
+
+  const pendingOrders = orders.filter(o => o.status === 'pending');
+  const idle = idleDrivers();
+
+  if (pendingOrders.length === 0) { log('No pending orders', 'warn'); btn.disabled = false; btn.textContent = 'Plan Routes for Idle Drivers'; return; }
+  if (idle.length === 0) { log('No idle drivers available', 'warn'); btn.disabled = false; btn.textContent = 'Plan Routes for Idle Drivers'; return; }
+
+  try {
+    const res = await fetch(`${API}/plan`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        orderIds: pendingOrders.map(o => o.id),
+        driverCount: idle.length,
+        origin: ORIGIN
+      })
+    });
+    if (!res.ok) throw new Error('Planning failed');
+    const data = await res.json();
+
+    // Clear old route lines
+    clearRouteLines();
+
+    // Auto-assign drivers to routes
+    plannedRoutes = data.routes.map((r, i) => ({
+      ...r,
+      driverId: idle[i] ? idle[i].id : null,
+      colorIndex: i
+    }));
+
+    // Draw preview on map
+    plannedRoutes.forEach((route, ri) => {
+      const color = ROUTE_COLORS[ri % ROUTE_COLORS.length];
+
+      // Color the markers
+      route.optimizedOrderIds.forEach((id, si) => {
+        if (markers[id]) markers[id].setIcon(makeIcon(color, si + 1));
+      });
+
+      // Draw route line
+      if (route.geometry) {
+        const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+        const line = L.polyline(coords, { color, weight: 3, opacity: 0.7, dashArray: '6 6' }).addTo(map);
+        routeLines.push(line);
+      }
+    });
+
+    // Fit map
+    const allPoints = pendingOrders.map(o => [o.lat, o.lng]);
+    allPoints.push([ORIGIN.lat, ORIGIN.lng]);
+    map.fitBounds(allPoints, { padding: [60, 60] });
+
+    // Render plan preview with driver assignment dropdowns
+    renderPlanPreview();
+
+    log(`Planned ${plannedRoutes.length} route(s) for ${pendingOrders.length} orders`, 'success');
+    markDone('sec-plan');
+    activate('sec-assign');
+    document.getElementById('btn-assign').disabled = false;
+    btn.textContent = 'Plan Routes for Idle Drivers';
+  } catch(e) { log('Failed: ' + e.message, 'warn'); btn.disabled = false; btn.textContent = 'Plan Routes for Idle Drivers'; }
+}
+
+function renderPlanPreview() {
+  const el = document.getElementById('plan-display');
+  const idle = idleDrivers();
+
+  el.innerHTML = plannedRoutes.map((route, ri) => {
+    const color = ROUTE_COLORS[route.colorIndex % ROUTE_COLORS.length];
+    const stops = route.optimizedOrderIds.map((id, si) => {
+      const o = orders.find(x => x.id === id);
+      const timeStr = o.deliver_at ? ` (${o.deliver_at})` : '';
+      return `${si+1}. ${o.customer_name} — ${o.address.split(',')[0]}${timeStr}`;
+    }).join('<br>');
+
+    const driverOptions = idle.map(d =>
+      `<option value="${d.id}" ${d.id === route.driverId ? 'selected' : ''}>${d.name}</option>`
+    ).join('');
+
+    return `<div class="plan-card" style="border-left-color:${color}">
+      <h3>Route ${ri+1} (${route.optimizedOrderIds.length} stops)</h3>
+      <div class="stops">${stops}</div>
+      <div class="assign-row">
+        <select onchange="reassignDriver(${ri}, this.value)">${driverOptions}</select>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function reassignDriver(routeIndex, driverId) {
+  const oldDriverId = plannedRoutes[routeIndex].driverId;
+  plannedRoutes[routeIndex].driverId = parseInt(driverId);
+
+  // Swap: find the route that currently has this driver and give it the old one
+  plannedRoutes.forEach((r, i) => {
+    if (i !== routeIndex && r.driverId === parseInt(driverId)) {
+      r.driverId = oldDriverId;
+    }
+  });
+
+  // Update color assignments — each route's color follows its driver index
+  plannedRoutes.forEach((route, ri) => {
+    const driverIdx = drivers.findIndex(d => d.id === route.driverId);
+    const colorIdx = driverIdx >= 0 ? driverIdx : ri;
+    route.colorIndex = colorIdx;
+    const color = ROUTE_COLORS[colorIdx % ROUTE_COLORS.length];
+
+    // Recolor markers
+    route.optimizedOrderIds.forEach((id, si) => {
+      if (markers[id]) markers[id].setIcon(makeIcon(color, si + 1));
+    });
+
+    // Recolor route line
+    if (routeLines[ri]) {
+      routeLines[ri].setStyle({ color, dashArray: '6 6', opacity: 0.7 });
+    }
+  });
+
+  renderPlanPreview();
+}
+
+// ─── STEP 4: ASSIGN ROUTES ───
+
+async function assignAllRoutes() {
+  const btn = document.getElementById('btn-assign');
+  btn.disabled = true;
+  btn.textContent = 'Assigning...';
+
+  let assignedCount = 0;
+  for (const route of plannedRoutes) {
+    if (!route.driverId || route.optimizedOrderIds.length === 0) continue;
+
+    try {
+      const res = await fetch(`${API}/routes`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          driver_id: route.driverId,
+          orderIds: route.optimizedOrderIds,
+          geometry: route.geometry
+        })
+      });
+      if (!res.ok) throw new Error('Assignment failed');
+      const routeData = await res.json();
+
+      const driver = drivers.find(d => d.id === route.driverId);
+      driver.status = 'delivering';
+
+      // Update order statuses
+      route.optimizedOrderIds.forEach(id => {
+        const o = orders.find(x => x.id === id);
+        if (o) o.status = 'assigned';
+      });
+
+      // Update markers to solid color
+      const color = ROUTE_COLORS[route.colorIndex % ROUTE_COLORS.length];
+      route.optimizedOrderIds.forEach((id, si) => {
+        if (markers[id]) {
+          const o = orders.find(x => x.id === id);
+          markers[id].setIcon(makeIcon(color, si + 1));
+          markers[id].setPopupContent(`<b>${o.customer_name}</b><br>${o.address.split(',')[0]}<br><span style="color:${color}">Assigned to ${driver.name} (Stop ${si+1})</span>`);
+        }
+      });
+
+      // Make route line solid
+      if (routeLines[route.colorIndex]) {
+        routeLines[route.colorIndex].setStyle({ dashArray: null, opacity: 0.9 });
+      }
+
+      // Track active delivery
+      activeDeliveries[route.driverId] = {
+        optimizedOrderIds: [...route.optimizedOrderIds],
+        deliveryIndex: 0,
+        colorIndex: route.colorIndex,
+        routeLineIndex: route.colorIndex
+      };
+
+      log(`Route assigned to <b>${driver.name}</b> — ${route.optimizedOrderIds.length} stops`, 'success');
+      assignedCount++;
+    } catch(e) { log(`Failed to assign route: ${e.message}`, 'warn'); }
+  }
+
+  renderDrivers();
+  renderOrders();
+  markDone('sec-assign');
+  activate('sec-deliver');
+  renderDeliverControls();
+  btn.textContent = 'Assign All Planned Routes';
+
+  document.getElementById('assign-display').innerHTML = `<span style="color:#22c55e">${assignedCount} route(s) assigned</span>`;
+}
+
+// ─── STEP 5: DELIVER ───
+
+function renderDeliverControls() {
+  const el = document.getElementById('deliver-controls');
+  const deliveryEntries = Object.entries(activeDeliveries);
+
+  if (deliveryEntries.length === 0) {
+    el.innerHTML = '<p style="font-size:11px;color:#6b7280;">No active deliveries</p>';
+    return;
+  }
+
+  el.innerHTML = deliveryEntries.map(([driverId, del]) => {
+    const driver = drivers.find(d => d.id === parseInt(driverId));
+    const color = ROUTE_COLORS[del.colorIndex % ROUTE_COLORS.length];
+
+    if (del.deliveryIndex >= del.optimizedOrderIds.length) {
+      return `<div style="margin-bottom:6px;padding:6px;background:#262830;border-radius:6px;border-left:3px solid ${color};font-size:11px;">
+        <b>${driver.name}</b> — <span style="color:#22c55e">All delivered!</span>
+      </div>`;
+    }
+
+    const nextId = del.optimizedOrderIds[del.deliveryIndex];
+    const nextOrder = orders.find(o => o.id === nextId);
+    const progress = `${del.deliveryIndex}/${del.optimizedOrderIds.length}`;
+
+    return `<div style="margin-bottom:6px;padding:6px;background:#262830;border-radius:6px;border-left:3px solid ${color};">
+      <div style="font-size:11px;margin-bottom:4px;"><b>${driver.name}</b> — ${progress} delivered</div>
+      <button class="btn-success btn-full" onclick="deliverOrder(${driverId})" style="font-size:11px;">
+        Deliver #${del.deliveryIndex+1}: ${nextOrder.customer_name}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+async function deliverOrder(driverId) {
+  const del = activeDeliveries[driverId];
+  if (!del || del.deliveryIndex >= del.optimizedOrderIds.length) return;
+
+  const id = del.optimizedOrderIds[del.deliveryIndex];
+  const order = orders.find(o => o.id === id);
+
+  try {
+    const res = await fetch(`${API}/orders/${id}/deliver`, { method: 'PATCH' });
+    if (!res.ok) throw new Error('Delivery failed');
+    order.status = 'delivered';
+    log(`Delivered to <b>${order.customer_name}</b>`, 'success');
+
+    // Remove delivered marker from map
+    if (markers[id]) {
+      map.removeLayer(markers[id]);
+      delete markers[id];
+    }
+
+    del.deliveryIndex++;
+    renderOrders();
+
+    if (del.deliveryIndex >= del.optimizedOrderIds.length) {
+      const driver = drivers.find(d => d.id === parseInt(driverId));
+      driver.status = 'idle';
+      log(`<b>${driver.name}</b> finished all deliveries — back to idle`, 'success');
+
+      // Remove completed route line from map
+      if (routeLines[del.routeLineIndex]) {
+        map.removeLayer(routeLines[del.routeLineIndex]);
+        routeLines[del.routeLineIndex] = null;
+      }
+
+      renderDrivers();
+
+      // Check if all deliveries are done
+      const allDone = Object.values(activeDeliveries).every(d => d.deliveryIndex >= d.optimizedOrderIds.length);
+      if (allDone) {
+        document.getElementById('deliver-display').innerHTML = '<span style="color:#22c55e">All routes completed!</span>';
+        markDone('sec-deliver');
+        // Re-enable for next round
+        activate('sec-orders');
+        plannedRoutes = null;
+        activeDeliveries = {};
+        document.getElementById('btn-plan').disabled = orders.filter(o=>o.status==='pending').length > 0 && idleDrivers().length > 0 ? false : true;
+        document.getElementById('btn-assign').disabled = true;
+      }
+    }
+
+    renderDeliverControls();
+  } catch(e) { log('Failed: ' + e.message, 'warn'); }
+}
+
+log('Ready. Add drivers, then create orders for the Singen area.', 'info');
+</script>
+</body>
+</html>

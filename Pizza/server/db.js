@@ -18,6 +18,7 @@ export function createTables(db) {
       lat REAL,
       lng REAL,
       status TEXT DEFAULT 'pending' CHECK(status IN ('pending','assigned','delivered')),
+      deliver_at TEXT,
       arrived_at INTEGER,
       route_id INTEGER,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP

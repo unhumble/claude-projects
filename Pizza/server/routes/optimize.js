@@ -6,7 +6,7 @@ export function createOptimizeRouter(db) {
   const router = Router();
 
   router.post('/', async (req, res) => {
-    const { orderIds } = req.body;
+    const { orderIds, origin } = req.body;
 
     if (!orderIds || orderIds.length < 2) {
       return res.status(400).json({ error: 'At least 2 order IDs required' });
@@ -25,7 +25,14 @@ export function createOptimizeRouter(db) {
     // Build coordinates string (OSRM uses lng,lat)
     const orderMap = new Map(orders.map(o => [o.id, o]));
     const orderedOrders = orderIds.map(id => orderMap.get(id));
-    const coords = orderedOrders.map(o => `${o.lng},${o.lat}`).join(';');
+
+    // If origin provided, prepend it so the route starts from the pizzeria
+    let coordsList = orderedOrders.map(o => `${o.lng},${o.lat}`);
+    const hasOrigin = origin && origin.lat != null && origin.lng != null;
+    if (hasOrigin) {
+      coordsList.unshift(`${origin.lng},${origin.lat}`);
+    }
+    const coords = coordsList.join(';');
 
     const url = `${OSRM_URL}/${coords}?roundtrip=false&source=first&destination=last&overview=full&geometries=geojson`;
 
@@ -44,8 +51,11 @@ export function createOptimizeRouter(db) {
       return res.status(502).json({ error: 'Route optimization failed' });
     }
 
-    // Re-map waypoint indices back to order IDs
-    const optimizedOrderIds = data.waypoints.map(wp => orderIds[wp.waypoint_index]);
+    // Re-map waypoint indices back to order IDs (skip origin waypoint at index 0 if present)
+    const originOffset = hasOrigin ? 1 : 0;
+    const optimizedOrderIds = data.waypoints
+      .slice(originOffset)
+      .map(wp => orderIds[wp.waypoint_index - originOffset]);
 
     res.json({
       optimizedOrderIds,
