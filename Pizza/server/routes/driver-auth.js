@@ -18,8 +18,11 @@ export function createDriverAuthRouter(db, sse) {
       const token = randomUUID();
       const result = db.prepare('INSERT INTO drivers (name, token) VALUES (?, ?)').run(name, token);
       driver = db.prepare('SELECT * FROM drivers WHERE id = ?').get(result.lastInsertRowid);
+      sse.broadcast({ type: 'driver_created', driver });
       return res.status(201).json({ driver, route: null, stops: [] });
     }
+
+    sse.broadcast({ type: 'driver_login', driver });
 
     const route = db.prepare(
       "SELECT * FROM routes WHERE driver_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
@@ -38,34 +41,6 @@ export function createDriverAuthRouter(db, sse) {
     }
 
     res.json({ driver, route: route || null, stops });
-  });
-
-  // GET /api/driver/:token — driver view
-  router.get('/driver/:token', (req, res) => {
-    const driver = db.prepare('SELECT * FROM drivers WHERE token = ?').get(req.params.token);
-
-    if (!driver) {
-      return res.status(404).json({ error: 'Driver not found' });
-    }
-
-    const route = db.prepare(
-      "SELECT * FROM routes WHERE driver_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
-    ).get(driver.id);
-
-    let stops = [];
-    if (route) {
-      const orderIds = JSON.parse(route.stops);
-      const placeholders = orderIds.map(() => '?').join(',');
-      const orders = db.prepare(
-        `SELECT * FROM orders WHERE id IN (${placeholders})`
-      ).all(...orderIds);
-
-      // Return stops in optimized order
-      const orderMap = new Map(orders.map(o => [o.id, o]));
-      stops = orderIds.map(id => orderMap.get(id)).filter(Boolean);
-    }
-
-    res.json({ driver, stops, route: route || null });
   });
 
   // PATCH /api/orders/:id/deliver — mark delivery

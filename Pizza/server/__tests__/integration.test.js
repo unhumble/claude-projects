@@ -69,7 +69,7 @@ describe('Full integration', () => {
     expect(routeRes.status).toBe(201);
 
     // 5. Driver views their route
-    const driverView = await request(app).get(`/api/driver/${driver.token}`);
+    const driverView = await request(app).get(`/api/driver/login?name=Marco`);
     expect(driverView.status).toBe(200);
     expect(driverView.body.stops).toHaveLength(2);
 

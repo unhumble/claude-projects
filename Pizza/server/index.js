@@ -46,8 +46,12 @@ export function createApp(dbPath) {
 
   // Serve demo page
   const __dirname = dirname(fileURLToPath(import.meta.url));
+  app.get('/', (req, res) => res.redirect('/demo'));
   app.get('/demo', (req, res) => {
     res.status(200).sendFile(join(__dirname, 'demo.html'));
+  });
+  app.get('/driver', (req, res) => {
+    res.status(200).sendFile(join(__dirname, 'driver.html'));
   });
 
   return { app, db, sse };

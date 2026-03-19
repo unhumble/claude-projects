@@ -34,21 +34,6 @@ describe('Driver Auth API', () => {
     db.close();
   });
 
-  describe('GET /api/driver/:token', () => {
-    it('returns driver info with stops and route', async () => {
-      const res = await request(app).get('/api/driver/secret-token');
-      expect(res.status).toBe(200);
-      expect(res.body.driver.name).toBe('Marco');
-      expect(res.body.stops).toHaveLength(2);
-      expect(res.body.route).toBeDefined();
-    });
-
-    it('returns 404 for invalid token', async () => {
-      const res = await request(app).get('/api/driver/bad-token');
-      expect(res.status).toBe(404);
-    });
-  });
-
   describe('GET /api/driver/login', () => {
     it('creates a new driver when name does not exist', async () => {
       const res = await request(app).get('/api/driver/login?name=NewDriver');

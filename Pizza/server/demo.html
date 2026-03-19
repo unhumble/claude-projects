@@ -209,7 +209,7 @@
         <input type="text" id="order-notes" placeholder="optional" />
       </div>
     </div>
-    <button class="btn-primary btn-full" id="btn-add-order" onclick="addOrder()" disabled>Add Order</button>
+    <button class="btn-primary btn-full" id="btn-add-order" onclick="addOrder()">Add Order</button>
     <div id="orders-display"></div>
   </div>
 
@@ -806,6 +806,41 @@ async function deliverOrder(driverId) {
 }
 
 log('Ready. Add drivers, then create orders for the Singen area.', 'info');
+
+// ─── SSE: real-time updates from driver app ───
+const evtSource = new EventSource(`${API}/events`);
+evtSource.onmessage = (e) => {
+  const evt = JSON.parse(e.data);
+
+  if (evt.type === 'driver_created') {
+    if (!drivers.find(d => d.id === evt.driver.id)) {
+      drivers.push(evt.driver);
+      renderDrivers();
+      document.getElementById('stat-drivers').textContent = drivers.length;
+      document.getElementById('btn-add-order').disabled = false;
+      if (drivers.length === 1) activate('sec-orders');
+      log(`Driver "${evt.driver.name}" joined via the driver app.`, 'info');
+    }
+  }
+
+  if (evt.type === 'driver_login') {
+    if (!drivers.find(d => d.id === evt.driver.id)) {
+      drivers.push(evt.driver);
+      renderDrivers();
+      document.getElementById('stat-drivers').textContent = drivers.length;
+    }
+  }
+
+  if (evt.type === 'delivery_confirmed') {
+    log(`Order #${evt.orderId} delivered.`, 'info');
+  }
+
+  if (evt.type === 'route_completed') {
+    const driver = drivers.find(d => d.id === evt.driverId);
+    if (driver) { driver.status = 'idle'; renderDrivers(); }
+    log('Route completed — driver is back idle.', 'info');
+  }
+};
 </script>
 </body>
 </html>

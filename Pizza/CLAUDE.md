@@ -35,3 +35,22 @@ npm run test:watch # vitest in watch mode
 - Database is SQLite with WAL mode for concurrent reads during SSE
 - Tests use in-memory SQLite (`:memory:`) — no test database files
 - External API calls (Nominatim, OSRM) are mocked in tests via `vi.mock` / `vi.stubGlobal`
+
+## Workflow for Pizza development
+
+### Before implementing features
+- Plan route optimization changes upfront — verify algorithm correctness with tests before integration
+- For delivery sequencing: always validate against real coordinates (Nominatim) in dev before claiming it works
+- Use SSE verification: manually test dashboard updates in browser before marking delivery features complete
+
+### When fixing bugs
+- Check server logs first — most issues are stale Node processes or database locks (see main CLAUDE.md)
+- Always run the full test suite after route optimization changes (affects multiple endpoints)
+- For delivery failures: trace through database state and mocked API calls to find the root cause
+
+### Verification checklist
+- ✓ Tests pass: `npm test`
+- ✓ Server starts cleanly without stale process errors
+- ✓ SSE updates flow to dashboard (open browser console and check)
+- ✓ Mocked API responses match expected formats
+- ✓ Route calculations produce sensible sequences (spot-check coordinates)
