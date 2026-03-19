@@ -34,7 +34,7 @@ export function createOptimizeRouter(db) {
     }
     const coords = coordsList.join(';');
 
-    const url = `${OSRM_URL}/${coords}?roundtrip=false&source=first&destination=last&overview=full&geometries=geojson`;
+    const url = `${OSRM_URL}/${coords}?roundtrip=false&source=first&destination=any&overview=full&geometries=geojson`;
 
     let data;
     try {

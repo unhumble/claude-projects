@@ -520,7 +520,7 @@ document.getElementById('order-notes').addEventListener('keydown', e => { if (e.
 // ─── STEP 3: PLAN ROUTES ───
 
 function clearRouteLines() {
-  routeLines.forEach(l => map.removeLayer(l));
+  routeLines.forEach(l => { if (l) map.removeLayer(l); });
   routeLines = [];
 }
 
