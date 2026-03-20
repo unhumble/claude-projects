@@ -2,6 +2,9 @@ import useOrders from '../hooks/useOrders.js';
 import useDrivers from '../hooks/useDrivers.js';
 import MapView from '../components/MapView.jsx';
 import DriverPanel from '../components/DriverPanel.jsx';
+import OrderForm from '../components/OrderForm.jsx';
+import OrderList from '../components/OrderList.jsx';
+import StatsBar from '../components/StatsBar.jsx';
 
 export default function ManagerDashboard() {
   const { orders, setOrders } = useOrders();
@@ -38,12 +41,25 @@ export default function ManagerDashboard() {
         {/* Sidebar content */}
         <div className="flex flex-col gap-6 p-4">
           <DriverPanel drivers={drivers} setDrivers={setDrivers} />
+
+          {/* Divider */}
+          <div style={{ borderTop: '1px solid #2a2d36' }} />
+
+          <OrderForm orders={orders} setOrders={setOrders} />
+
+          <div className="flex flex-col gap-3">
+            <div className="text-[10px] uppercase tracking-wider text-[#9ca3af]">
+              Orders
+            </div>
+            <OrderList orders={orders} />
+          </div>
         </div>
       </aside>
 
       {/* Map area */}
       <main className="flex-1 relative">
         <MapView orders={orders} drivers={drivers} />
+        <StatsBar orders={orders} drivers={drivers} />
       </main>
 
       {/* Responsive: stack vertically on narrow screens */}
