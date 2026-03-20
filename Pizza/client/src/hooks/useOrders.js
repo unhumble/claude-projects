@@ -21,18 +21,18 @@ export default function useOrders() {
     onDeliveryConfirmed: (data) => {
       setOrders((prev) =>
         prev.map((o) =>
-          o.id === data.id
-            ? { ...o, status: data.status, arrived_at: data.arrived_at }
-            : o,
+          o.id === data.orderId ? { ...o, status: 'delivered' } : o,
         ),
       );
     },
 
     onRouteAssigned: (data) => {
-      // data.orderIds contains the ids whose status changed to 'assigned'
+      const assignedIds = new Set((data.orders || []).map((o) => o.id));
       setOrders((prev) =>
         prev.map((o) =>
-          data.orderIds?.includes(o.id) ? { ...o, status: 'assigned' } : o,
+          assignedIds.has(o.id)
+            ? { ...o, status: 'assigned', route_id: data.route?.id }
+            : o,
         ),
       );
     },

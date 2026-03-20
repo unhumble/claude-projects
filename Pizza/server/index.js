@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import Database from 'better-sqlite3';
 import { createTables } from './db.js';
 import { createSSEManager } from './sse.js';
@@ -44,15 +44,31 @@ export function createApp(dbPath) {
   app.use('/api', createPushRouter(db));
   app.use('/api/plan', createPlanRouter(db));
 
-  // Serve demo page
+  // Serve demo pages (backward compat)
   const __dirname = dirname(fileURLToPath(import.meta.url));
-  app.get('/', (req, res) => res.redirect('/demo'));
   app.get('/demo', (req, res) => {
     res.status(200).sendFile(join(__dirname, 'demo.html'));
   });
-  app.get('/driver', (req, res) => {
+  app.get('/driver.html', (req, res) => {
     res.status(200).sendFile(join(__dirname, 'driver.html'));
   });
+
+  // Serve React client (production build)
+  const clientDist = join(__dirname, '..', 'client', 'dist');
+  if (existsSync(clientDist)) {
+    app.use(express.static(clientDist));
+    // SPA fallback: serve index.html for any non-API, non-file route
+    app.use((req, res, next) => {
+      if (req.method === 'GET' && !req.path.startsWith('/api')) {
+        res.sendFile(join(clientDist, 'index.html'));
+      } else {
+        next();
+      }
+    });
+  } else {
+    // No client build — redirect root to demo
+    app.get('/', (req, res) => res.redirect('/demo'));
+  }
 
   return { app, db, sse };
 }

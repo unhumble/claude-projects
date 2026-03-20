@@ -27,7 +27,19 @@ export default function useDrivers() {
     onRouteCompleted: (data) => {
       setDrivers((prev) =>
         prev.map((d) =>
-          d.id === data.driver_id ? { ...d, status: 'idle' } : d,
+          d.route?.id === data.routeId
+            ? { ...d, status: 'idle', route: null, progress: null }
+            : d,
+        ),
+      );
+    },
+
+    onRouteAssigned: (data) => {
+      setDrivers((prev) =>
+        prev.map((d) =>
+          d.id === data.route?.driver_id
+            ? { ...d, status: 'delivering' }
+            : d,
         ),
       );
     },

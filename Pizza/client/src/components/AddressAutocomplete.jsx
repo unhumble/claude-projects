@@ -84,7 +84,6 @@ export default function AddressAutocomplete({ value, onChange, onSelect }) {
         type="text"
         value={value}
         onChange={handleChange}
-        onBlur={handleBlur}
         placeholder="Street and number"
         className="w-full rounded-md px-3 py-2 text-sm text-[#e2e4e9] placeholder-[#6b7280] outline-none transition-colors"
         style={{
